@@ -249,9 +249,9 @@ sealed trait Prism[F[_, _], S, A <: S] extends Optic[F, S, A] {
 
   def reverseGet(a: A): S
 
-  def set(s: S, a: A)(implicit F: HasBinding[F]): S
+  def replace(s: S, a: A)(implicit F: HasBinding[F]): S
 
-  def setOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S]
+  def replaceOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S]
 
   // Compose this prism with a prism:
   override def apply[B <: A](that: Prism[F, A, B]): Prism[F, S, B] = Prism(this, that)
@@ -311,13 +311,13 @@ object Prism {
 
     def reverseGet(a: A): S = a
 
-    def set(s: S, a: A)(implicit F: HasBinding[F]): S = {
+    def replace(s: S, a: A)(implicit F: HasBinding[F]): S = {
       if (matcher eq null) init
       if (matcher.downcastOrNull(s) != null) a
       else s
     }
 
-    def setOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = {
+    def replaceOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = {
       if (matcher eq null) init
       if (matcher.downcastOrNull(s) != null) new Some(a)
       else None
@@ -347,9 +347,9 @@ object Prism {
 sealed trait Optional[F[_, _], S, A] extends Optic[F, S, A] {
   def getOption(s: S)(implicit F: HasBinding[F]): Option[A]
 
-  def set(s: S, a: A)(implicit F: HasBinding[F]): S
+  def replace(s: S, a: A)(implicit F: HasBinding[F]): S
 
-  def setOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S]
+  def replaceOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S]
 
   // Compose this optional with a lens:
   override def apply[B](that: Lens[F, A, B]): Optional[F, S, B] = Optional(this, that)
@@ -428,9 +428,9 @@ object Optional {
 
     def getOption(s: S)(implicit F: HasBinding[F]): Option[A] = second.getOption(first.get(s))
 
-    def set(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.set(_, a))
+    def replace(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.replace(_, a))
 
-    def setOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = second.setOption(first.get(s), a) match {
+    def replaceOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = second.replaceOption(first.get(s), a) match {
       case Some(t) => new Some(first.set(s, t))
       case _       => None
     }
@@ -453,9 +453,9 @@ object Optional {
 
     def getOption(s: S)(implicit F: HasBinding[F]): Option[A] = second.getOption(first.get(s))
 
-    def set(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.set(_, a))
+    def replace(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.replace(_, a))
 
-    def setOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = second.setOption(first.get(s), a) match {
+    def replaceOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = second.replaceOption(first.get(s), a) match {
       case Some(t) => new Some(first.set(s, t))
       case _       => None
     }
@@ -481,9 +481,9 @@ object Optional {
       case _       => None
     }
 
-    def set(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.set(_, a))
+    def replace(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.set(_, a))
 
-    def setOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = first.getOption(s) match {
+    def replaceOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = first.getOption(s) match {
       case Some(x) => new Some(second.set(x, a))
       case _       => None
     }
@@ -509,10 +509,10 @@ object Optional {
       case _       => None
     }
 
-    def set(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.set(_, a))
+    def replace(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.replace(_, a))
 
-    def setOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = first.getOption(s) match {
-      case Some(x) => second.setOption(x, a)
+    def replaceOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = first.getOption(s) match {
+      case Some(x) => second.replaceOption(x, a)
       case _       => None
     }
 
@@ -537,10 +537,10 @@ object Optional {
       case _       => None
     }
 
-    def set(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.set(_, a))
+    def replace(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.set(_, a))
 
-    def setOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = first.getOption(s) match {
-      case Some(x) => new Some(first.set(s, second.set(x, a)))
+    def replaceOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = first.getOption(s) match {
+      case Some(x) => new Some(first.replace(s, second.set(x, a)))
       case _       => None
     }
 
@@ -565,10 +565,10 @@ object Optional {
       case _       => None
     }
 
-    def set(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.set(_, a))
+    def replace(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.replace(_, a))
 
-    def setOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] =
-      if (first.getOption(s).flatMap(second.getOption) ne None) new Some(first.set(s, a))
+    def replaceOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] =
+      if (first.getOption(s).flatMap(second.getOption) ne None) new Some(first.replace(s, a))
       else None
 
     def modify(s: S, f: A => A)(implicit F: HasBinding[F]): S = first.modify(s, second.modify(_, f))
@@ -592,10 +592,10 @@ object Optional {
       case _       => None
     }
 
-    def set(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.set(_, a))
+    def replace(s: S, a: A)(implicit F: HasBinding[F]): S = first.modify(s, second.replace(_, a))
 
-    def setOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = first.getOption(s) match {
-      case Some(x) => new Some(first.set(s, second.set(x, a)))
+    def replaceOption(s: S, a: A)(implicit F: HasBinding[F]): Option[S] = first.getOption(s) match {
+      case Some(x) => new Some(first.replace(s, second.replace(x, a)))
       case _       => None
     }
 
