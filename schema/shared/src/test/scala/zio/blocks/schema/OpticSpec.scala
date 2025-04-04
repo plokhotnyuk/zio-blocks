@@ -147,6 +147,64 @@ object OpticSpec extends ZIOSpecDefault {
         assert(Variant1.v2_v3_c5_left.reverseGet(Case5(null, null)))(equalTo(Case5(null, null): Variant1)) &&
         assert(Variant1.v2_v3_c5_right.reverseGet(Case5(null, null)))(equalTo(Case5(null, null): Variant1))
       },
+      test("sets an optional case class value") {
+        assert(Variant1.c1.set(Case1(0.1), Case1(0.2)))(equalTo(Case1(0.2): Variant1)) &&
+        assert(Variant1.c2.set(Case2(Record3(null, null, null)), Case2(null)))(equalTo(Case2(null): Variant1)) &&
+        assert(Variant1.v2.set(Case3(Case1(0.1)), Case4(Nil)))(equalTo(Case4(Nil): Variant1)) &&
+        assert(Variant1.v2_c3.set(Case3(Case1(0.1)), Case3(Case1(0.2))))(equalTo(Case3(Case1(0.2)): Variant1)) &&
+        assert(Variant2.c3.set(Case3(Case1(0.1)), Case3(Case1(0.2))))(equalTo(Case3(Case1(0.2)): Variant2)) &&
+        assert(Variant2.c4.set(Case4(List(Record3(null, null, null))), Case4(Nil)))(equalTo(Case4(Nil): Variant2)) &&
+        assert(Variant1.v2_v3_c5_left.set(Case5(null, null), Case5(Set.empty, null)))(
+          equalTo(Case5(Set.empty, null): Variant1)
+        ) &&
+        assert(Variant1.v2_v3_c5_right.set(Case5(null, null), Case5(Set.empty, null)))(
+          equalTo(Case5(Set.empty, null): Variant1)
+        )
+      },
+      test("doesn't set other case class values") {
+        assert(Variant1.c1.set(Case2(null), Case1(0.2)))(equalTo(Case2(null): Variant1)) &&
+        assert(Variant1.c2.set(Case1(0.1), Case2(null)))(equalTo(Case1(0.1): Variant1)) &&
+        assert(Variant1.v2.set(Case2(null), Case4(Nil)))(equalTo(Case2(null): Variant1)) &&
+        assert(Variant1.v2_c3.set(Case1(0.1), Case3(Case1(0.2))))(equalTo(Case1(0.1): Variant1)) &&
+        assert(Variant2.c3.set(Case4(List(Record3(null, null, null))), Case3(Case1(0.2))))(
+          equalTo(Case4(List(Record3(null, null, null))): Variant2)
+        ) &&
+        assert(Variant2.c4.set(Case3(Case1(0.1)), Case4(Nil)))(equalTo(Case3(Case1(0.1)): Variant2)) &&
+        assert(Variant1.v2_v3_c5_left.set(Case4(Nil), Case5(Set.empty, null)))(equalTo(Case4(Nil): Variant1)) &&
+        assert(Variant1.v2_v3_c5_right.set(Case4(Nil), Case5(Set.empty, null)))(equalTo(Case4(Nil): Variant1))
+      },
+      test("optionally sets an optional case class value") {
+        assert(Variant1.c1.setOption(Case1(0.1), Case1(0.2)))(isSome(equalTo(Case1(0.2): Variant1))) &&
+        assert(Variant1.c2.setOption(Case2(Record3(null, null, null)), Case2(null)))(
+          isSome(equalTo(Case2(null): Variant1))
+        ) &&
+        assert(Variant1.v2.setOption(Case3(Case1(0.1)), Case4(Nil)))(isSome(equalTo(Case4(Nil): Variant1))) &&
+        assert(Variant1.v2_c3.setOption(Case3(Case1(0.1)), Case3(Case1(0.2))))(
+          isSome(equalTo(Case3(Case1(0.2)): Variant1))
+        ) &&
+        assert(Variant2.c3.setOption(Case3(Case1(0.1)), Case3(Case1(0.2))))(
+          isSome(equalTo(Case3(Case1(0.2)): Variant2))
+        ) &&
+        assert(Variant2.c4.setOption(Case4(List(Record3(null, null, null))), Case4(Nil)))(
+          isSome(equalTo(Case4(Nil): Variant2))
+        ) &&
+        assert(Variant1.v2_v3_c5_left.setOption(Case5(null, null), Case5(Set.empty, null)))(
+          isSome(equalTo(Case5(Set.empty, null): Variant1))
+        ) &&
+        assert(Variant1.v2_v3_c5_right.setOption(Case5(null, null), Case5(Set.empty, null)))(
+          isSome(equalTo(Case5(Set.empty, null): Variant1))
+        )
+      },
+      test("optionally doesn't set other case class values") {
+        assert(Variant1.c1.setOption(Case2(null), Case1(0.2)))(isNone) &&
+        assert(Variant1.c2.setOption(Case1(0.1), Case2(null)))(isNone) &&
+        assert(Variant1.v2.setOption(Case2(null), Case4(Nil)))(isNone) &&
+        assert(Variant1.v2_c3.setOption(Case1(0.1), Case3(Case1(0.2))))(isNone) &&
+        assert(Variant2.c3.setOption(Case4(List(Record3(null, null, null))), Case3(Case1(0.2))))(isNone) &&
+        assert(Variant2.c4.setOption(Case3(Case1(0.1)), Case4(Nil)))(isNone) &&
+        assert(Variant1.v2_v3_c5_left.setOption(Case4(Nil), Case5(Set.empty, null)))(isNone) &&
+        assert(Variant1.v2_v3_c5_right.setOption(Case4(Nil), Case5(Set.empty, null)))(isNone)
+      },
       test("modify an optional case class value") {
         assert(Variant1.c1.modify(Case1(0.1), _ => Case1(0.2)))(equalTo(Case1(0.2): Variant1)) &&
         assert(Variant1.c2.modify(Case2(Record3(null, null, null)), _ => Case2(null)))(
@@ -265,7 +323,7 @@ object OpticSpec extends ZIOSpecDefault {
       test("doesn't get a focus value if it's not possible") {
         assert(Variant1.c2_r3_r1.getOption(Case3(Case1(0.1))))(isNone) &&
         assert(Variant2.c3_v1_c1_left.getOption(Case4(Nil)))(isNone) &&
-        assert(Variant2.c3_v1_c1_right.getOption(Case4(Nil)))(isNone) &&
+        assert(Variant2.c3_v1_c1_right.getOption(Case3(Case2(null))))(isNone) &&
         assert(Variant2.c3_v1_c1_d_right.getOption(Case4(Nil)))(isNone) &&
         assert(Variant2.c3_v1.getOption(Case4(Nil)))(isNone) &&
         assert(Case3.v1_c1_d_left.getOption(Case3(Case4(Nil))))(isNone) &&
@@ -286,7 +344,7 @@ object OpticSpec extends ZIOSpecDefault {
       test("doesn't set a focus value if it's not possible") {
         assert(Variant1.c2_r3_r1.set(Case3(Case1(0.1)), Record1(false, 0.2f)))(equalTo(Case3(Case1(0.1)))) &&
         assert(Variant2.c3_v1_c1_left.set(Case4(Nil), Case1(0.2)))(equalTo(Case4(Nil))) &&
-        assert(Variant2.c3_v1_c1_right.set(Case4(Nil), Case1(0.2)))(equalTo(Case4(Nil))) &&
+        assert(Variant2.c3_v1_c1_right.set(Case3(Case2(null)), Case1(0.2)))(equalTo(Case3(Case2(null)))) &&
         assert(Variant2.c3_v1_c1_d_right.set(Case4(Nil), 0.2))(equalTo(Case4(Nil))) &&
         assert(Variant2.c3_v1.set(Case4(Nil), Case1(0.2)))(equalTo(Case4(Nil))) &&
         assert(Case3.v1_c1_d_left.set(Case3(Case4(Nil)), 0.2))(equalTo(Case3(Case4(Nil)))) &&
@@ -307,7 +365,7 @@ object OpticSpec extends ZIOSpecDefault {
       test("optionally doesn't set a focus value if it's not possible") {
         assert(Variant1.c2_r3_r1.setOption(Case3(Case1(0.1)), Record1(false, 0.2f)))(equalTo(None)) &&
         assert(Variant2.c3_v1_c1_left.setOption(Case4(Nil), Case1(0.2)))(equalTo(None)) &&
-        assert(Variant2.c3_v1_c1_right.setOption(Case4(Nil), Case1(0.2)))(equalTo(None)) &&
+        assert(Variant2.c3_v1_c1_right.setOption(Case3(Case2(null)), Case1(0.2)))(equalTo(None)) &&
         assert(Variant2.c3_v1_c1_d_right.setOption(Case4(Nil), 0.2))(equalTo(None)) &&
         assert(Variant2.c3_v1.setOption(Case4(Nil), Case1(0.2)))(equalTo(None)) &&
         assert(Case3.v1_c1_d_left.setOption(Case3(Case4(Nil)), 0.2))(equalTo(None)) &&
