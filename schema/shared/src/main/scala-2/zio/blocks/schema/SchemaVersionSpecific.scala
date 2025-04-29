@@ -78,14 +78,12 @@ private object SchemaVersionSpecific {
     def typeName(tpe: Type): (Seq[String], Seq[String], String) = {
       var packages = List.empty[String]
       var values   = List.empty[String]
-      var name     = NameTransformer.decode(tpe.typeSymbol.name.toString)
+      val name     = NameTransformer.decode(tpe.typeSymbol.name.toString)
       val comp     = companion(tpe)
       var owner =
         if (comp == null) tpe.typeSymbol
-        else if (comp == NoSymbol) {
-          name += ".type"
-          tpe.typeSymbol.asClass.module
-        } else comp
+        else if (comp == NoSymbol) tpe.typeSymbol.asClass.module
+        else comp
       while ({
         owner = owner.owner
         owner != NoSymbol
