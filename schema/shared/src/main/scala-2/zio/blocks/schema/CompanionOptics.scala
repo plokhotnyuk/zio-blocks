@@ -20,7 +20,6 @@ private object CompanionOptics {
     def fail(msg: String): Nothing = c.abort(c.enclosingPosition, msg)
 
     val sTpe = weakTypeOf[S].dealias
-    val aTpe = weakTypeOf[A].dealias
     path.tree match {
       case Function(List(valDef @ ValDef(_, _, _, _)), Select(id @ Ident(_), TermName(name)))
           if id.symbol == valDef.symbol =>
@@ -30,7 +29,7 @@ private object CompanionOptics {
                 import _root_.zio.blocks.schema._
                 import _root_.zio.blocks.schema.binding._
 
-                $schema.reflect.asInstanceOf[Reflect.Record[Binding, $sTpe]].lensByName[$aTpe]($fieldName).get
+                $schema.reflect.asInstanceOf[Reflect.Record[Binding, $sTpe]].lensByName($fieldName).get
               }"""
         }
       case pt =>
@@ -51,7 +50,7 @@ private object CompanionOptics {
             import _root_.zio.blocks.schema._
             import _root_.zio.blocks.schema.binding._
 
-            $schema.reflect.asInstanceOf[Reflect.Variant[Binding, $sTpe]].prismByName[$aTpe]($caseName).get
+            $schema.reflect.asInstanceOf[Reflect.Variant[Binding, $sTpe]].prismByName($caseName).get
           }"""
     }
   }
