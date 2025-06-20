@@ -427,6 +427,33 @@ object SchemaSpec extends ZIOSpecDefault {
         assert(Record6.schema.fromDynamicValue(Record6.schema.toDynamicValue(Record6(r = Some(Record6())))))(
           isRight(equalTo(Record6(r = Some(Record6()))))
         )
+      },
+      test("derives schema for record of value classes") {
+        val record = ValueClass.schema.reflect.asRecord
+        assert(record.map(_.constructor.usedRegisters))(isSome(equalTo(RegisterOffset(ints = 1)))) &&
+        assert(record.map(_.deconstructor.usedRegisters))(isSome(equalTo(RegisterOffset(ints = 1)))) &&
+        assert(ValueClass.i.focus.getDefaultValue)(isNone) &&
+        assert(ValueClass.i.get(ValueClass(1)))(equalTo(1)) &&
+        assert(ValueClass.schema.fromDynamicValue(ValueClass.schema.toDynamicValue(ValueClass(1))))(
+          isRight(equalTo(ValueClass(1)))
+        ) &&
+        assert(ValueClass.schema)(
+          equalTo(
+            new Schema[ValueClass](
+              reflect = Reflect.Record[Binding, ValueClass](
+                fields = Vector(Schema[Int].reflect.asTerm("i")),
+                typeName = TypeName(
+                  namespace = Namespace(
+                    packages = Seq("zio", "blocks", "schema"),
+                    values = Seq("SchemaSpec")
+                  ),
+                  name = "ValueClass"
+                ),
+                recordBinding = null
+              )
+            )
+          )
+        )
       }
     ),
     suite("Reflect.Variant")(
@@ -1156,4 +1183,11 @@ object SchemaSpec extends ZIOSpecDefault {
   }
 
   case object Case extends Level1.MultiLevel
+
+  case class ValueClass(i: Int) extends AnyVal
+
+  object ValueClass extends CompanionOptics[ValueClass] {
+    implicit val schema: Schema[ValueClass] = Schema.derived
+    val i: Lens[ValueClass, Int]            = optic(_.i)
+  }
 }

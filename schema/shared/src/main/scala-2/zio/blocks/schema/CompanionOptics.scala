@@ -49,28 +49,31 @@ private object CompanionOptics {
         val elementTpe = tree.tpe.dealias.widen
         val optic      = toOptic(parent)
         if (optic.isEmpty) fail("Expected a path element preceding `.each`")
-        else
+        else {
           q"""$optic.apply($optic.focus.asSequenceUnknown.map { x =>
                 _root_.zio.blocks.schema.Traversal.seqValues(x.sequence)
               }.get.asInstanceOf[_root_.zio.blocks.schema.Traversal[$parentTpe, $elementTpe]])"""
+        }
       case q"$_[..$_]($parent).eachKey" =>
         val parentTpe = parent.tpe.dealias.widen
         val keyTpe    = tree.tpe.dealias.widen
         val optic     = toOptic(parent)
         if (optic.isEmpty) fail("Expected a path element preceding `.eachKey`")
-        else
+        else {
           q"""$optic.apply($optic.focus.asMapUnknown.map { x =>
                 _root_.zio.blocks.schema.Traversal.mapKeys(x.map)
               }.get.asInstanceOf[_root_.zio.blocks.schema.Traversal[$parentTpe, $keyTpe]])"""
+        }
       case q"$_[..$_]($parent).eachValue" =>
         val parentTpe = parent.tpe.dealias.widen
         val valueTpe  = tree.tpe.dealias.widen
         val optic     = toOptic(parent)
         if (optic.isEmpty) fail("Expected a path element preceding `.eachValue`")
-        else
+        else {
           q"""$optic.apply($optic.focus.asMapUnknown.map { x =>
                 _root_.zio.blocks.schema.Traversal.mapValues(x.map)
               }.get.asInstanceOf[_root_.zio.blocks.schema.Traversal[$parentTpe, $valueTpe]])"""
+        }
       case q"$_[..$_]($parent).when[$caseTree]" =>
         val caseTpe  = caseTree.tpe.dealias
         val caseName = NameTransformer.decode(caseTpe.typeSymbol.name.toString)
