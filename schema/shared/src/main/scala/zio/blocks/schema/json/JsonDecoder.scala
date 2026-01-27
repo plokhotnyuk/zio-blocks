@@ -4,6 +4,7 @@ import zio.blocks.schema.Schema
 
 import java.time._
 import java.util.{Currency, UUID}
+import scala.math.BigInt
 import scala.util.control.NonFatal
 
 /**
@@ -76,10 +77,9 @@ object JsonDecoder {
   implicit val intDecoder: JsonDecoder[Int] = new JsonDecoder[Int] {
     def decode(json: Json): Either[JsonError, Int] = json match {
       case num: Json.Number =>
-        val n = num.value
-        try new Right(n.toInt)
+        try new Right(num.value.toIntExact)
         catch {
-          case err if NonFatal(err) => new Left(JsonError(s"Number $n is not a valid Int"))
+          case err if NonFatal(err) => new Left(JsonError("Number is not a valid Int"))
         }
       case _ => new Left(JsonError("Expected Number"))
     }
@@ -88,10 +88,9 @@ object JsonDecoder {
   implicit val longDecoder: JsonDecoder[Long] = new JsonDecoder[Long] {
     def decode(json: Json): Either[JsonError, Long] = json match {
       case num: Json.Number =>
-        val n = num.value
-        try new Right(n.toLong)
+        try new Right(num.value.toLongExact)
         catch {
-          case err if NonFatal(err) => new Left(JsonError(s"Number $n is not a valid Long"))
+          case err if NonFatal(err) => new Left(JsonError("Number is not a valid Long"))
         }
       case _ => new Left(JsonError("Expected Number"))
     }
@@ -129,7 +128,7 @@ object JsonDecoder {
     def decode(json: Json): Either[JsonError, BigDecimal] = {
       json match {
         case num: Json.Number =>
-          try return new Right(BigDecimal(num.value))
+          try return new Right(num.value)
           catch {
             case err if NonFatal(err) =>
           }
@@ -142,10 +141,9 @@ object JsonDecoder {
   implicit val bigIntDecoder: JsonDecoder[BigInt] = new JsonDecoder[BigInt] {
     def decode(json: Json): Either[JsonError, BigInt] = json match {
       case num: Json.Number =>
-        val n = num.value
-        try new Right(BigInt(n))
+        try new Right(BigInt(num.value.underlying.toBigIntegerExact))
         catch {
-          case err if NonFatal(err) => new Left(JsonError(s"Number $n is not a valid BigInt"))
+          case err if NonFatal(err) => new Left(JsonError("Number is not a valid BigInt"))
         }
       case _ => new Left(JsonError("Expected Number"))
     }
@@ -154,10 +152,9 @@ object JsonDecoder {
   implicit val byteDecoder: JsonDecoder[Byte] = new JsonDecoder[Byte] {
     def decode(json: Json): Either[JsonError, Byte] = json match {
       case num: Json.Number =>
-        val n = num.value
-        try new Right(n.toByte)
+        try new Right(num.value.toByteExact)
         catch {
-          case err if NonFatal(err) => new Left(JsonError(s"Number $n is not a valid Byte"))
+          case err if NonFatal(err) => new Left(JsonError("Number is not a valid Byte"))
         }
       case _ => new Left(JsonError("Expected Number"))
     }
@@ -166,10 +163,9 @@ object JsonDecoder {
   implicit val shortDecoder: JsonDecoder[Short] = new JsonDecoder[Short] {
     def decode(json: Json): Either[JsonError, Short] = json match {
       case num: Json.Number =>
-        val n = num.value
-        try new Right(n.toShort)
+        try new Right(num.value.toShortExact)
         catch {
-          case err if NonFatal(err) => new Left(JsonError(s"Number $n is not a valid Short"))
+          case err if NonFatal(err) => new Left(JsonError("Number is not a valid Short"))
         }
       case _ => new Left(JsonError("Expected Number"))
     }
@@ -447,7 +443,8 @@ object JsonDecoder {
   // Other Standard Types
   // ─────────────────────────────────────────────────────────────────────────
 
-  implicit val uuidDecoder: JsonDecoder[UUID]         = parseString("UUID")(UUID.fromString)
+  implicit val uuidDecoder: JsonDecoder[UUID] = parseString("UUID")(UUID.fromString)
+
   implicit val currencyDecoder: JsonDecoder[Currency] = parseString("Currency")(Currency.getInstance)
 
   // ─────────────────────────────────────────────────────────────────────────

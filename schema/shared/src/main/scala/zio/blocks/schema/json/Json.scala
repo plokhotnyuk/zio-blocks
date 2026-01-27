@@ -21,7 +21,7 @@ import scala.util.control.NonFatal
  */
 sealed trait Json {
 
-  override def toString = print(WriterConfig.withIndentionStep(2))
+  override def toString: String = print(WriterConfig.withIndentionStep(2))
 
   // ─────────────────────────────────────────────────────────────────────────
   // Type Information
@@ -41,7 +41,7 @@ sealed trait Json {
    *   {{{ json.is(JsonType.Object) // true if json is an object
    *   json.is(JsonType.String) // true if json is a string }}}
    */
-  def is(jsonType: JsonType): Boolean = this.jsonType == jsonType
+  def is(jsonType: JsonType): Boolean = this.jsonType eq jsonType
 
   /**
    * Narrows this JSON value to the specified type, returning `Some` if the
@@ -52,7 +52,7 @@ sealed trait Json {
    *   {{{ json.as(JsonType.Object) // Option[Json.Object]
    *   json.as(JsonType.String) // Option[Json.String] }}}
    */
-  def as(jsonType: JsonType): Option[jsonType.Type] = None
+  def as(jsonType: JsonType): Option[jsonType.Type]
 
   /**
    * Extracts the underlying value from this JSON if it matches the specified
@@ -63,7 +63,7 @@ sealed trait Json {
    *   json.unwrap(JsonType.Number) // Option[BigDecimal]
    *   json.unwrap(JsonType.Object) // Option[Chunk[(String, Json)]] }}}
    */
-  def unwrap(jsonType: JsonType): Option[jsonType.Unwrap] = None
+  def unwrap(jsonType: JsonType): Option[jsonType.Unwrap]
 
   // ─────────────────────────────────────────────────────────────────────────
   // Direct Accessors
@@ -437,10 +437,12 @@ object Json {
     override def jsonType: JsonType = JsonType.Object
 
     override def as(jsonType: JsonType): Option[jsonType.Type] =
-      if (jsonType == JsonType.Object) Some(this.asInstanceOf[jsonType.Type]) else None
+      if (jsonType eq JsonType.Object) new Some(this.asInstanceOf[jsonType.Type])
+      else None
 
     override def unwrap(jsonType: JsonType): Option[jsonType.Unwrap] =
-      if (jsonType == JsonType.Object) Some(value.asInstanceOf[jsonType.Unwrap]) else None
+      if (jsonType eq JsonType.Object) new Some(value.asInstanceOf[jsonType.Unwrap])
+      else None
 
     override def fields: Chunk[(java.lang.String, Json)] = value
 
@@ -522,10 +524,12 @@ object Json {
     override def jsonType: JsonType = JsonType.Array
 
     override def as(jsonType: JsonType): Option[jsonType.Type] =
-      if (jsonType == JsonType.Array) Some(this.asInstanceOf[jsonType.Type]) else None
+      if (jsonType eq JsonType.Array) new Some(this.asInstanceOf[jsonType.Type])
+      else None
 
     override def unwrap(jsonType: JsonType): Option[jsonType.Unwrap] =
-      if (jsonType == JsonType.Array) Some(value.asInstanceOf[jsonType.Unwrap]) else None
+      if (jsonType eq JsonType.Array) new Some(value.asInstanceOf[jsonType.Unwrap])
+      else None
 
     override def elements: Chunk[Json] = value
 
@@ -575,10 +579,12 @@ object Json {
     override def jsonType: JsonType = JsonType.String
 
     override def as(jsonType: JsonType): Option[jsonType.Type] =
-      if (jsonType == JsonType.String) Some(this.asInstanceOf[jsonType.Type]) else None
+      if (jsonType eq JsonType.String) new Some(this.asInstanceOf[jsonType.Type])
+      else None
 
     override def unwrap(jsonType: JsonType): Option[jsonType.Unwrap] =
-      if (jsonType == JsonType.String) Some(value.asInstanceOf[jsonType.Unwrap]) else None
+      if (jsonType eq JsonType.String) new Some(value.asInstanceOf[jsonType.Unwrap])
+      else None
 
     override def typeIndex: Int = 3
 
@@ -589,63 +595,67 @@ object Json {
   }
 
   /**
-   * Represents a JSON number stored as a String to preserve exact
-   * representation.
+   * Represents a JSON number stored as a `BigDecimal`.
+   *
+   * The numeric value is preserved exactly as a `BigDecimal`, but any original
+   * textual formatting (such as leading zeros or a specific exponent form) is
+   * not retained.
    */
-  final case class Number(value: java.lang.String) extends Json {
+  final case class Number(value: BigDecimal) extends Json {
     override def jsonType: JsonType = JsonType.Number
 
     override def as(jsonType: JsonType): Option[jsonType.Type] =
-      if (jsonType == JsonType.Number) Some(this.asInstanceOf[jsonType.Type]) else None
+      if (jsonType eq JsonType.Number) new Some(this.asInstanceOf[jsonType.Type]) else None
 
     override def unwrap(jsonType: JsonType): Option[jsonType.Unwrap] =
-      if (jsonType == JsonType.Number) toBigDecimalOption.asInstanceOf[Option[jsonType.Unwrap]] else None
+      if (jsonType eq JsonType.Number) new Some(toBigDecimal).asInstanceOf[Option[jsonType.Unwrap]] else None
 
     override def typeIndex: Int = 2
 
     /** Returns the underlying BigDecimal value. */
-    def toBigDecimal: BigDecimal = BigDecimal(value)
-
-    /** Returns the underlying BigDecimal value if parseable, otherwise None. */
-    def toBigDecimalOption: Option[BigDecimal] =
-      try Some(BigDecimal(value))
-      catch { case _: NumberFormatException => None }
+    def toBigDecimal: BigDecimal = value
 
     override def compare(that: Json): Int = that match {
-      case thatNum: Number =>
-        try BigDecimal(value).compare(BigDecimal(thatNum.value))
-        catch {
-          case err if NonFatal(err) => value.compareTo(thatNum.value)
-        }
-      case _ => typeIndex - that.typeIndex
+      case thatNum: Number => value.compare(thatNum.value)
+      case _               => typeIndex - that.typeIndex
     }
   }
 
   object Number {
 
     /** Creates a JSON number from an Int. */
-    def apply(value: Int): Number = new Number(value.toString)
+    def apply(value: Int): Number = new Number(BigDecimal(value))
 
     /** Creates a JSON number from a Long. */
-    def apply(value: Long): Number = new Number(value.toString)
+    def apply(value: Long): Number = new Number(BigDecimal(value))
 
-    /** Creates a JSON number from a Float. */
-    def apply(value: Float): Number = new Number(value.toString)
+    /**
+     * Creates a JSON number from a Float.
+     *
+     * @throws IllegalArgumentException
+     *   in cases of NaN of infinity values
+     */
+    def apply(value: Float): Number = new Number(JsonWriter.toBigDecimal(value))
 
-    /** Creates a JSON number from a Double. */
-    def apply(value: Double): Number = new Number(value.toString)
+    /**
+     * Creates a JSON number from a Double.
+     *
+     * @throws IllegalArgumentException
+     *   in cases of NaN of infinity values
+     */
+    def apply(value: Double): Number = new Number(JsonWriter.toBigDecimal(value))
 
     /** Creates a JSON number from a BigDecimal. */
-    def apply(value: BigDecimal): Number = new Number(value.toString)
+    def apply(value: BigDecimal): Number = new Number(value)
 
     /** Creates a JSON number from a BigInt. */
-    def apply(value: BigInt): Number = new Number(value.toString)
+    def apply(value: BigInt): Number = new Number(BigDecimal(value))
 
     /** Creates a JSON number from a Byte. */
-    def apply(value: Byte): Number = new Number(value.toString)
+    def apply(value: Byte): Number = new Number(BigDecimal(value))
 
     /** Creates a JSON number from a Short. */
-    def apply(value: Short): Number = new Number(value.toString)
+    def apply(value: Short): Number = new Number(BigDecimal(value))
   }
 
   /**
@@ -655,10 +665,12 @@ object Json {
     override def jsonType: JsonType = JsonType.Boolean
 
     override def as(jsonType: JsonType): Option[jsonType.Type] =
-      if (jsonType == JsonType.Boolean) Some(this.asInstanceOf[jsonType.Type]) else None
+      if (jsonType eq JsonType.Boolean) new Some(this.asInstanceOf[jsonType.Type])
+      else None
 
     override def unwrap(jsonType: JsonType): Option[jsonType.Unwrap] =
-      if (jsonType == JsonType.Boolean) Some(value.asInstanceOf[jsonType.Unwrap]) else None
+      if (jsonType eq JsonType.Boolean) new Some(value.asInstanceOf[jsonType.Unwrap])
+      else None
 
     override def typeIndex: Int = 1
 
@@ -681,17 +693,18 @@ object Json {
     override def jsonType: JsonType = JsonType.Null
 
     override def as(jsonType: JsonType): Option[jsonType.Type] =
-      if (jsonType == JsonType.Null) Some(this.asInstanceOf[jsonType.Type]) else None
+      if (jsonType eq JsonType.Null) new Some(this.asInstanceOf[jsonType.Type])
+      else None
 
     override def unwrap(jsonType: JsonType): Option[jsonType.Unwrap] =
-      if (jsonType == JsonType.Null) Some(().asInstanceOf[jsonType.Unwrap]) else None
+      if (jsonType eq JsonType.Null) new Some(().asInstanceOf[jsonType.Unwrap])
+      else None
 
     override def typeIndex: Int = 0
 
-    override def compare(that: Json): Int = that match {
-      case Null => 0
-      case _    => typeIndex - that.typeIndex
-    }
+    override def compare(that: Json): Int =
+      if (that eq Null) 0
+      else typeIndex - that.typeIndex
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -737,12 +750,10 @@ object Json {
     }
 
   /** Parses a JSON CharSequence into a Json value. */
-  def parse(input: CharSequence): Either[JsonError, Json] =
-    parse(input.toString)
+  def parse(input: CharSequence): Either[JsonError, Json] = parse(input.toString)
 
   /** Parses a JSON CharSequence with config. */
-  def parse(input: CharSequence, config: ReaderConfig): Either[JsonError, Json] =
-    parse(input.toString, config)
+  def parse(input: CharSequence, config: ReaderConfig): Either[JsonError, Json] = parse(input.toString, config)
 
   /** Parses a JSON ByteBuffer into a Json value. */
   def parse(input: ByteBuffer): Either[JsonError, Json] =
@@ -800,16 +811,16 @@ object Json {
   private def fromPrimitiveValue(pv: PrimitiveValue): Json = pv match {
     case PrimitiveValue.Unit              => Object.empty
     case v: PrimitiveValue.Boolean        => Boolean(v.value)
-    case v: PrimitiveValue.Byte           => new Number(v.value.toString)
-    case v: PrimitiveValue.Short          => new Number(v.value.toString)
-    case v: PrimitiveValue.Int            => new Number(v.value.toString)
-    case v: PrimitiveValue.Long           => new Number(v.value.toString)
-    case v: PrimitiveValue.Float          => new Number(v.value.toString)
-    case v: PrimitiveValue.Double         => new Number(v.value.toString)
+    case v: PrimitiveValue.Byte           => Number(v.value)
+    case v: PrimitiveValue.Short          => Number(v.value)
+    case v: PrimitiveValue.Int            => Number(v.value)
+    case v: PrimitiveValue.Long           => Number(v.value)
+    case v: PrimitiveValue.Float          => Number(v.value)
+    case v: PrimitiveValue.Double         => Number(v.value)
     case v: PrimitiveValue.Char           => new String(v.value.toString)
     case v: PrimitiveValue.String         => new String(v.value)
-    case v: PrimitiveValue.BigInt         => new Number(v.value.toString)
-    case v: PrimitiveValue.BigDecimal     => new Number(v.value.toString)
+    case v: PrimitiveValue.BigInt         => Number(v.value)
+    case v: PrimitiveValue.BigDecimal     => Number(v.value)
     case v: PrimitiveValue.DayOfWeek      => new String(v.value.toString)
     case v: PrimitiveValue.Duration       => new String(v.value.toString)
     case v: PrimitiveValue.Instant        => new String(v.value.toString)
@@ -835,8 +846,7 @@ object Json {
     case str: String   => new DynamicValue.Primitive(new PrimitiveValue.String(str.value))
     case bool: Boolean => new DynamicValue.Primitive(new PrimitiveValue.Boolean(bool.value))
     case num: Number   =>
-      // Try to preserve Int/Long if possible
-      val bd        = BigDecimal(num.value)
+      val bd        = num.value
       val longValue = bd.bigDecimal.longValue
       if (bd == BigDecimal(longValue)) {
         val intValue = longValue.toInt
@@ -865,12 +875,9 @@ object Json {
     s: MergeStrategy
   ): Json =
     (left, right) match {
-      case (lo: Object, ro: Object) if s.recurse(path, JsonType.Object) =>
-        mergeByKey(path, lo, ro, s)
-      case (la: Array, ra: Array) if s.recurse(path, JsonType.Array) =>
-        mergeByIndex(path, la, ra, s)
-      case _ =>
-        s(path, left, right)
+      case (lo: Object, ro: Object) if s.recurse(path, JsonType.Object) => mergeByKey(path, lo, ro, s)
+      case (la: Array, ra: Array) if s.recurse(path, JsonType.Array)    => mergeByIndex(path, la, ra, s)
+      case _                                                            => s(path, left, right)
     }
 
   private def mergeByKey(
@@ -883,9 +890,8 @@ object Json {
     val rightMap = right.value.toMap
     val allKeys  = (left.value.map(_._1) ++ right.value.map(_._1)).distinct
     new Object(Chunk.from(allKeys.map { key =>
-      val childPath = path.field(key)
       (leftMap.get(key), rightMap.get(key)) match {
-        case (Some(lv), Some(rv)) => (key, mergeImpl(childPath, lv, rv, s))
+        case (Some(lv), Some(rv)) => (key, mergeImpl(path.field(key), lv, rv, s))
         case (Some(lv), None)     => (key, lv)
         case (None, Some(rv))     => (key, rv)
         case (None, None)         => throw new IllegalStateException("Key should exist in at least one map")
@@ -901,9 +907,8 @@ object Json {
   ): Array = {
     val maxLen = Math.max(left.value.length, right.value.length)
     new Array(Chunk.from((0 until maxLen).map { i =>
-      val childPath = path.at(i)
       (left.value.lift(i), right.value.lift(i)) match {
-        case (Some(lv), Some(rv)) => mergeImpl(childPath, lv, rv, s)
+        case (Some(lv), Some(rv)) => mergeImpl(path.at(i), lv, rv, s)
         case (Some(lv), None)     => lv
         case (None, Some(rv))     => rv
         case (None, None)         => throw new IllegalStateException("Index should exist in at least one array")
@@ -920,15 +925,9 @@ object Json {
       path,
       json match {
         case obj: Object =>
-          new Object(obj.value.map { case (k, v) =>
-            val childPath = path.field(k)
-            (k, transformUpImpl(v, childPath, f))
-          })
+          new Object(obj.value.map { case (k, v) => (k, transformUpImpl(v, path.field(k), f)) })
         case arr: Array =>
-          new Array(arr.value.zipWithIndex.map { case (elem, i) =>
-            val childPath = path.at(i)
-            transformUpImpl(elem, childPath, f)
-          })
+          new Array(arr.value.zipWithIndex.map { case (elem, i) => transformUpImpl(elem, path.at(i), f) })
         case other => other
       }
     )
@@ -936,17 +935,9 @@ object Json {
   private def transformDownImpl(json: Json, path: DynamicOptic, f: (DynamicOptic, Json) => Json): Json =
     f(path, json) match {
       case obj: Object =>
-        val newFields = obj.value.map { case (k, v) =>
-          val childPath = path.field(k)
-          (k, transformDownImpl(v, childPath, f))
-        }
-        Object(newFields)
+        new Object(obj.value.map { case (k, v) => (k, transformDownImpl(v, path.field(k), f)) })
       case arr: Array =>
-        val newElems = arr.value.zipWithIndex.map { case (elem, i) =>
-          val childPath = path.at(i)
-          transformDownImpl(elem, childPath, f)
-        }
-        new Array(newElems)
+        new Array(arr.value.zipWithIndex.map { case (elem, i) => transformDownImpl(elem, path.at(i), f) })
       case other => other
     }
 
@@ -958,15 +949,11 @@ object Json {
     json match {
       case obj: Object =>
         new Object(obj.value.map { case (k, v) =>
-          val newKey    = f(path.field(k), k)
-          val childPath = path.field(newKey)
-          (newKey, transformKeysImpl(v, childPath, f))
+          val newKey = f(path.field(k), k)
+          (newKey, transformKeysImpl(v, path.field(newKey), f))
         })
       case arr: Array =>
-        new Array(arr.value.zipWithIndex.map { case (elem, i) =>
-          val childPath = path.at(i)
-          transformKeysImpl(elem, childPath, f)
-        })
+        new Array(arr.value.zipWithIndex.map { case (elem, i) => transformKeysImpl(elem, path.at(i), f) })
       case other => other
     }
 
@@ -978,13 +965,11 @@ object Json {
     json match {
       case obj: Object =>
         new Object(obj.value.collect {
-          case (k, v) if !p(path.field(k), v) =>
-            (k, pruneImpl(v, path.field(k), p))
+          case (k, v) if !p(path.field(k), v) => (k, pruneImpl(v, path.field(k), p))
         })
       case arr: Array =>
         new Array(arr.value.zipWithIndex.collect {
-          case (elem, i) if !p(path.at(i), elem) =>
-            pruneImpl(elem, path.at(i), p)
+          case (elem, i) if !p(path.at(i), elem) => pruneImpl(elem, path.at(i), p)
         })
       case other => other
     }
@@ -993,13 +978,11 @@ object Json {
     json match {
       case obj: Object =>
         new Object(obj.value.collect {
-          case (k, v) if p(path.field(k), v) =>
-            (k, retainImpl(v, path.field(k), p))
+          case (k, v) if p(path.field(k), v) => (k, retainImpl(v, path.field(k), p))
         })
       case arr: Array =>
         new Array(arr.value.zipWithIndex.collect {
-          case (elem, i) if p(path.at(i), elem) =>
-            retainImpl(elem, path.at(i), p)
+          case (elem, i) if p(path.at(i), elem) => retainImpl(elem, path.at(i), p)
         })
       case other => other
     }
@@ -1634,7 +1617,7 @@ object Json {
    * doesn't exist.
    */
   private[json] def deleteAtPathOrFail(json: Json, path: DynamicOptic): Either[JsonError, Json] =
-    deleteAtPath(json, path).toRight(JsonError(s"Path not found: ${path.toString}"))
+    deleteAtPath(json, path).toRight(JsonError(s"Path not found: $path"))
 
   /**
    * Inserts a value at the given path, returning Some(modified) or None if the
@@ -1690,7 +1673,7 @@ object Json {
               // Insert at this index (shifts elements right)
               if (index >= 0 && index <= elems.length) {
                 val (before, after) = elems.splitAt(index)
-                new Some(new Array(before ++ Vector(value) ++ after))
+                new Some(new Array((before :+ value) ++ after))
               } else None
             } else {
               // Navigate into the element and continue
@@ -1827,7 +1810,7 @@ object Json {
         constructor = new Constructor[Number] {
           def usedRegisters: RegisterOffset                            = 1
           def construct(in: Registers, offset: RegisterOffset): Number =
-            new Number(in.getObject(offset + 0).asInstanceOf[java.lang.String])
+            new Number(in.getObject(offset + 0).asInstanceOf[BigDecimal])
         },
         deconstructor = new Deconstructor[Number] {
           def usedRegisters: RegisterOffset                                         = 1
@@ -2007,10 +1990,7 @@ object Json {
         Boolean.apply(in.readBoolean())
       } else if (b >= '0' && b <= '9' || b == '-') {
         in.rollbackToken()
-        in.setMark()
-        val _ = in.readBigDecimal(null)
-        in.rollbackToMark()
-        new Number(new java.lang.String(in.readRawValAsBytes()))
+        new Number(in.readBigDecimal(null))
       } else if (b == '[') {
         if (in.isNextToken(']')) Array.empty
         else {
@@ -2059,7 +2039,7 @@ object Json {
     override def encodeValue(x: Json, out: JsonWriter): Unit = x match {
       case str: String   => out.writeVal(str.value)
       case bool: Boolean => out.writeVal(bool.value)
-      case num: Number   => out.writeRawVal(num.value.getBytes)
+      case num: Number   => out.writeVal(num.value)
       case arr: Array    =>
         out.writeArrayStart()
         val it = arr.value.iterator
